@@ -8,6 +8,7 @@
 #include <Shlwapi.h>
 #include "SevenZipHandler.h"
 #include "InStreamWrapper.h"
+#include "UTF8.h"
 // Data
 static LPDIRECT3DDEVICE9        g_pd3dDevice = NULL;
 static D3DPRESENT_PARAMETERS    g_d3dpp;
@@ -45,11 +46,15 @@ LRESULT WINAPI WndProc(HWND hWnd, UINT msg, WPARAM wParam, LPARAM lParam)
 	return DefWindowProc(hWnd, msg, wParam, lParam);
 }
 
-TCHAR* WinClassName = _T("PSVManager");
+const char* WinClassName = "PSVManager";
 
-int WINAPI WinMain(HINSTANCE hInstance, HINSTANCE hPrevInstance, PSTR szCmdLine, int iCmdShow)
+int APIENTRY wWinMain(_In_ HINSTANCE hInstance,
+                     _In_opt_ HINSTANCE hPrevInstance,
+                     _In_ LPWSTR    lpCmdLine,
+                     _In_ int       nCmdShow)
 {
     HWND         hwnd;
+	auto className = widen(WinClassName);
     WNDCLASSEX   wndclassex = {0};
     wndclassex.cbSize        = sizeof(WNDCLASSEX);
     wndclassex.style         = CS_HREDRAW | CS_VREDRAW;
@@ -61,16 +66,16 @@ int WINAPI WinMain(HINSTANCE hInstance, HINSTANCE hPrevInstance, PSTR szCmdLine,
     wndclassex.hCursor       = LoadCursor (NULL, IDC_ARROW);
     wndclassex.hbrBackground = (HBRUSH) GetStockObject (WHITE_BRUSH);
     wndclassex.lpszMenuName  = NULL;
-    wndclassex.lpszClassName = WinClassName;
+    wndclassex.lpszClassName = className.c_str();
     wndclassex.hIconSm       = wndclassex.hIcon;
 	
     if (!RegisterClassEx (&wndclassex))
     {
-        MessageBox (NULL, TEXT ("RegisterClassEx failed!"), WinClassName, MB_ICONERROR);
+        MessageBox(NULL, TEXT ("RegisterClassEx failed!"), className.c_str(), MB_ICONERROR);
         return 0;
     }
     hwnd = CreateWindowEx (WS_EX_OVERLAPPEDWINDOW, 
-		                  WinClassName, 
+		className.c_str(),
         		          TEXT ("WindowTitle"),
                 		  WS_OVERLAPPEDWINDOW,
 		                  CW_USEDEFAULT, 
@@ -89,7 +94,7 @@ int WINAPI WinMain(HINSTANCE hInstance, HINSTANCE hPrevInstance, PSTR szCmdLine,
 	LPDIRECT3D9 pD3D;
 	if ((pD3D = Direct3DCreate9(D3D_SDK_VERSION)) == NULL)
 	{
-		UnregisterClass(_T(WinClassName), wndclassex.hInstance);
+		UnregisterClassW(className.c_str(), wndclassex.hInstance);
 		return 0;
 	}
 	ZeroMemory(&g_d3dpp, sizeof(g_d3dpp));
@@ -104,7 +109,7 @@ int WINAPI WinMain(HINSTANCE hInstance, HINSTANCE hPrevInstance, PSTR szCmdLine,
 	if (pD3D->CreateDevice(D3DADAPTER_DEFAULT, D3DDEVTYPE_HAL, hwnd, D3DCREATE_HARDWARE_VERTEXPROCESSING, &g_d3dpp, &g_pd3dDevice) < 0)
 	{
 		pD3D->Release();
-		UnregisterClass(_T(WinClassName), wndclassex.hInstance);
+		UnregisterClassW(className.c_str(), wndclassex.hInstance);
 		return 0;
 	}
 
@@ -155,7 +160,7 @@ int WINAPI WinMain(HINSTANCE hInstance, HINSTANCE hPrevInstance, PSTR szCmdLine,
 	ImGui_ImplDX9_Shutdown();
 	if (g_pd3dDevice) g_pd3dDevice->Release();
 	if (pD3D) pD3D->Release();
-	UnregisterClass(_T("ImGui Example"), wndclassex.hInstance);
+	UnregisterClassW(className.c_str(), wndclassex.hInstance);
 
     return msg.wParam;
 }
