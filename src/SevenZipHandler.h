@@ -18,6 +18,7 @@ struct ArchiveItemInfo {
 	std::string path;
 	std::string parentPath;
 	uint64_t size;
+	uint64_t packSize;
 	bool encrypted;
 	uint32_t CRC;
 	std::string method;
@@ -80,6 +81,14 @@ public:
 	{
 		memset(&prop, 0, sizeof(prop));
 		archive->GetProperty(i, propId, &prop);
+		if (prop.vt != vt && prop.vt != VT_EMPTY)
+			throw std::runtime_error("Type Error!");
+		return prop.vt == vt;
+	}
+	bool GetArchiveProperty(PROPVARIANT &prop, IInArchive* archive, VARTYPE propId, VARENUM vt)
+	{
+		memset(&prop, 0, sizeof(prop));
+		archive->GetArchiveProperty(propId, &prop);
 		if (prop.vt != vt && prop.vt != VT_EMPTY)
 			throw std::runtime_error("Type Error!");
 		return prop.vt == vt;

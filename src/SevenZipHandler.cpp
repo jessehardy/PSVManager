@@ -49,10 +49,23 @@ void SevenZipHandler::Open()
 	archive->GetNumberOfItems(&numItems);
 	std::vector<ArchiveItemInfo> infoList;
 
+	PROPVARIANT prop;
+	std::string method;
+	bool isSolid = false;
+	uint32_t warningFlags = 0;
+	uint32_t errorFlags = 0;
+	if (GetArchiveProperty(prop, archive, kpidMethod, VT_BSTR))
+		method = narrow(prop.bstrVal);
+	if (GetArchiveProperty(prop, archive, kpidSolid, VT_BOOL))
+		isSolid = prop.boolVal != 0;
+	if (GetArchiveProperty(prop, archive, kpidWarningFlags, VT_UI4))
+		warningFlags = prop.uintVal;
+	if (GetArchiveProperty(prop, archive, kpidErrorFlags, VT_UI4))
+		errorFlags = prop.uintVal;
+
 	for (auto i = 0u; i < numItems; ++i) {
 		ArchiveItemInfo info;
 
-		PROPVARIANT prop;
 
 		if (GetProperty(prop, archive, i, kpidIsDir, VT_BOOL))
 			info.isDir = prop.boolVal != 0;
@@ -62,6 +75,9 @@ void SevenZipHandler::Open()
 
 		if (GetProperty(prop, archive, i, kpidSize, VT_UI8))
 			info.size = prop.uhVal.QuadPart;
+
+		if (GetProperty(prop, archive, i, kpidPackSize, VT_UI8))
+			info.packSize = prop.uhVal.QuadPart;
 
 		if (GetProperty(prop, archive, i, kpidEncrypted, VT_BOOL))
 			info.encrypted = prop.boolVal != 0;
