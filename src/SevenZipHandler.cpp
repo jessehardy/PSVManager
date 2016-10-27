@@ -3,12 +3,24 @@
 #include <Shlwapi.h>
 #include "GUIDs.h"
 #include <vector>
-
+#include <algorithm>
+#include <map>
 using namespace NWindows;
+std::map<std::pair<uint32_t, uint64_t>, std::string> DumpToolLibInfos{
+	{ { 0x246ECE3C, 87866 }, "MaiDumpTool v233.2zEX v233.2z10" },
+	{ { 0xBA7B8611, 87866 }, "MaiDumpTool v233.2z7 v233.2z8 v233.2z9" },
+	{ { 0x67B037E4, 87954 }, "MaiDumpTool v233.2z2" },
+	{ { 0xB392D8BE, 87056 }, "MaiDumpTool v233.1" },
+	{ { 0x8F554660, 86442 }, "MaiDumpTool v233" },
+
+	{ { 0x1DF8B729, 78682 }, "Vitamin V2.0" },
+	{ { 0x6F6F71BB, 107851 }, "Vitamin V1.1" },
+	{ { 0x4FD25E74, 110535 }, "Vitamin Leaked Version" },
+};
 
 void SevenZipHandler::Open()
 {
-	const char* filePath = "abc.zip";
+	const char* filePath = "PCSE00575_FULLGAME_01.00.VPK";
 	IStream* fileStream;
 
 	if (FAILED(SHCreateStreamOnFileEx(widen(filePath).c_str(), STGM_READ, FILE_ATTRIBUTE_NORMAL, FALSE, NULL, &fileStream)))
@@ -35,63 +47,88 @@ void SevenZipHandler::Open()
 	// List command
 	UInt32 numItems = 0;
 	archive->GetNumberOfItems(&numItems);
-
-	struct ArchiveItemInfo {
-		std::string path;
-		uint64_t size;
-		bool encrypted;
-		uint32_t CRC;
-		std::string method;
-	};
-
 	std::vector<ArchiveItemInfo> infoList;
 
 	for (auto i = 0u; i < numItems; ++i) {
 		ArchiveItemInfo info;
-			// Get uncompressed size of file
-			PROPVARIANT prop;
 
-			// Get name of file
-			memset(&prop, 0, sizeof(prop));
-			archive->GetProperty(i, kpidPath, &prop);
-			if (prop.vt == VT_BSTR)
-				info.path = narrow(prop.bstrVal);
-			else if (prop.vt != VT_EMPTY)
-				throw std::runtime_error("Error");
+		PROPVARIANT prop;
 
-			memset(&prop, 0, sizeof(prop));
-			archive->GetProperty(i, kpidSize, &prop);
-			if (prop.vt == VT_UI8)
-				info.size = prop.uhVal.QuadPart;
-			else if (prop.vt != VT_EMPTY)
-				throw std::runtime_error("Error");
+		if (GetProperty(prop, archive, i, kpidIsDir, VT_BOOL))
+			info.isDir = prop.boolVal != 0;
 
+		if (GetProperty(prop, archive, i, kpidPath, VT_BSTR))
+			info.path = narrow(prop.bstrVal);
 
-			memset(&prop, 0, sizeof(prop));
-			archive->GetProperty(i, kpidEncrypted, &prop);
-			if (prop.vt == VT_BOOL)
-				info.encrypted = prop.boolVal != 0;
-			else if (prop.vt != VT_EMPTY)
-				throw std::runtime_error("Error");
+		if (GetProperty(prop, archive, i, kpidSize, VT_UI8))
+			info.size = prop.uhVal.QuadPart;
 
-			memset(&prop, 0, sizeof(prop));
-			archive->GetProperty(i, kpidCRC, &prop);
-			if (prop.vt == VT_UI4)
-				info.CRC = prop.uintVal;
-			else if (prop.vt == VT_EMPTY)
-				info.CRC = 0;
-			else
-				throw std::runtime_error("Error");
+		if (GetProperty(prop, archive, i, kpidEncrypted, VT_BOOL))
+			info.encrypted = prop.boolVal != 0;
 
-			memset(&prop, 0, sizeof(prop));
-			archive->GetProperty(i, kpidMethod, &prop);
-			if (prop.vt == VT_BSTR)
-				info.method = narrow(prop.bstrVal);
-			else if (prop.vt != VT_EMPTY)
-				throw std::runtime_error("Error");
+		if (GetProperty(prop, archive, i, kpidCRC, VT_UI4))
+			info.CRC = prop.uintVal;
+		else
+			info.CRC = 0;
 
-			infoList.push_back(info);
+		if (GetProperty(prop, archive, i, kpidMethod, VT_BSTR))
+			info.method = narrow(prop.bstrVal);
+
+		infoList.push_back(info);
 	}
 	archive->Close();
 	archive->Release();
+
+	std::sort(infoList.begin(), infoList.end(), [](const ArchiveItemInfo& a, const ArchiveItemInfo& b) {return a.path < b.path;});
+
+	for (int i = 0; i < infoList.size(); ++i) {
+		auto& info = infoList[i];
+		info.index = i;
+		auto lastSlash = info.path.find_last_of('\\');
+		if (lastSlash == std::string::npos) {
+			info.parent = -1;
+			info.name = info.path;
+		}
+		else {
+			info.parentPath = info.path.substr(0, lastSlash);
+			info.name = info.path.substr(lastSlash + 1);
+			info.parent = -1;
+			for (int j = 0; j < infoList.size(); ++j) {
+				if (infoList[j].path == info.parentPath) {
+					info.parent = j;
+					break;
+				}
+			}
+			if (info.parent < 0) {
+				//throw std::runtime_error("Not found parent.");
+			}
+		}
+	}
+	for (auto&& info : infoList) {
+		if (info.name == "eboot.bin") {
+			std::string dumpTool = "Unknown";
+			auto parentPath = info.parentPath;
+			if (!parentPath.empty()) {
+				parentPath += "\\";
+			}
+
+			auto maiLibPath = parentPath + "mai_moe\\mai.suprx";
+			FindDumpToolLib(infoList, maiLibPath, dumpTool);
+
+			auto vitaminLibPath = parentPath + "sce_module\\steroid.suprx";
+			FindDumpToolLib(infoList, vitaminLibPath, dumpTool);
+		}
+	}
+}
+
+void SevenZipHandler::FindDumpToolLib(std::vector<ArchiveItemInfo> &infoList, std::string libPath, std::string& dumpTool)
+{
+	auto libIt = std::find_if(infoList.begin(), infoList.end(), [&libPath](const ArchiveItemInfo&a) {return a.path == libPath;});
+	if (libIt != infoList.end()) {
+		auto& maiLibInfo = *libIt;
+		auto crcIt = DumpToolLibInfos.find(std::make_pair(maiLibInfo.CRC, maiLibInfo.size));
+		if (crcIt != DumpToolLibInfos.end()) {
+			dumpTool = crcIt->second;
+		}
+	}
 }

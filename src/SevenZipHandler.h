@@ -7,8 +7,23 @@
 #include <assert.h>
 #include "InStreamWrapper.h"
 #include <7zip/Archive/IArchive.h>
+#include <vector>
 
 #define kDllName _T("7z.dll")
+
+struct ArchiveItemInfo {
+	int index;
+	int parent;
+	bool isDir;
+	std::string path;
+	std::string parentPath;
+	uint64_t size;
+	bool encrypted;
+	uint32_t CRC;
+	std::string method;
+	std::string name;
+};
+
 
 class SevenZipHandler
 {
@@ -27,7 +42,7 @@ public:
 		Free();
 	}
 
-	bool Load() {
+	void Load() {
 		m_dll = LoadLibrary(kDllName);
 		if (m_dll == NULL)
 		{
@@ -61,7 +76,19 @@ public:
 		}
 		return r;
 	}
+	bool GetProperty(PROPVARIANT &prop, IInArchive* archive, unsigned int i, VARTYPE propId, VARENUM vt)
+	{
+		memset(&prop, 0, sizeof(prop));
+		archive->GetProperty(i, propId, &prop);
+		if (prop.vt != vt && prop.vt != VT_EMPTY)
+			throw std::runtime_error("Type Error!");
+		return prop.vt == vt;
+	}
+
 	void Open();
+
+	void FindDumpToolLib(std::vector<ArchiveItemInfo> &infoList, std::string libPath, std::string& dumpTool);
+
 };
 
 #endif // SevenZipHandler_h__
