@@ -1,4 +1,4 @@
-#include <imgui.h>
+﻿#include <imgui.h>
 #include "imgui_impl_dx9.h"
 #include <d3d9.h>
 #define DIRECTINPUT_VERSION 0x0800
@@ -116,16 +116,8 @@ int APIENTRY wWinMain(_In_ HINSTANCE hInstance,
 	// Setup ImGui binding
 	ImGui_ImplDX9_Init(hwnd, g_pd3dDevice);
 
-	// Load Fonts
-	// (there is a default font, this is only if you want to change it. see extra_fonts/README.txt for more details)
-	//ImGuiIO& io = ImGui::GetIO();
-	//io.Fonts->AddFontDefault();
-	//io.Fonts->AddFontFromFileTTF("../../extra_fonts/Cousine-Regular.ttf", 15.0f);
-	//io.Fonts->AddFontFromFileTTF("../../extra_fonts/DroidSans.ttf", 16.0f);
-	//io.Fonts->AddFontFromFileTTF("../../extra_fonts/ProggyClean.ttf", 13.0f);
-	//io.Fonts->AddFontFromFileTTF("../../extra_fonts/ProggyTiny.ttf", 10.0f);
-	//io.Fonts->AddFontFromFileTTF("c:\\Windows\\Fonts\\ArialUni.ttf", 18.0f, NULL, io.Fonts->GetGlyphRangesJapanese());
-
+	ImGuiIO& io = ImGui::GetIO();
+	io.Fonts->AddFontFromFileTTF("msyh.ttc", 18.0f, NULL, io.Fonts->GetGlyphRangesChinese());
 
 	// Main loop
 	MSG msg;
@@ -172,31 +164,5 @@ ImVec4 clear_col = ImColor(114, 144, 154);
 
 void OnGUI()
 {
-	// 1. Show a simple window
-	// Tip: if we don't call ImGui::Begin()/ImGui::End() the widgets appears in a window automatically called "Debug"
-	{
-		static float f = 0.0f;
-		ImGui::Text("Hello, world!");
-		ImGui::SliderFloat("float", &f, 0.0f, 1.0f);
-		ImGui::ColorEdit3("clear color", (float*)&clear_col);
-		if (ImGui::Button("Test Window")) show_test_window ^= 1;
-		if (ImGui::Button("Another Window")) show_another_window ^= 1;
-		ImGui::Text("Application average %.3f ms/frame (%.1f FPS)", 1000.0f / ImGui::GetIO().Framerate, ImGui::GetIO().Framerate);
-	}
-
-	// 2. Show another simple window, this time using an explicit Begin/End pair
-	if (show_another_window)
-	{
-		ImGui::SetNextWindowSize(ImVec2(200, 100), ImGuiSetCond_FirstUseEver);
-		ImGui::Begin("Another Window", &show_another_window);
-		ImGui::Text("Hello");
-		ImGui::End();
-	}
-
-	// 3. Show the ImGui test window. Most of the sample code is in ImGui::ShowTestWindow()
-	if (show_test_window)
-	{
-		ImGui::SetNextWindowPos(ImVec2(650, 20), ImGuiSetCond_FirstUseEver);
-		ImGui::ShowTestWindow(&show_test_window);
-	}
+	ImGui::Text(u8"中文日本っ後Hell 한국 사람은 골프에 미칠까 ? 세계 어디에서든 비바람이 불고 눈이 오는 날 골프장에서 누군가를 만났다면 한국 사람일 가능 성이 크다. 미국뿐 아니라 아시아•유o");
 }
