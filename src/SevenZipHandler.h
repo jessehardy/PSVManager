@@ -8,6 +8,7 @@
 #include "InStreamWrapper.h"
 #include <7zip/Archive/IArchive.h>
 #include <vector>
+#include <stdint.h>
 
 #define kDllName _T("7z.dll")
 
