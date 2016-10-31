@@ -34,22 +34,22 @@ public:
 	STDMETHOD(CryptoGetTextPassword)(BSTR *aPassword);
 
 private:
-	CMyComPtr<IInArchive> _archiveHandler;
+	//CMyComPtr<IInArchive> _archiveHandler;
 	//FString _directoryPath;  // Output directory
 	//UString _filePath;       // name inside arcvhive
 	//FString _diskFilePath;   // full path to file on disk
 	bool _extractMode;
-	struct CProcessedFileInfo
-	{
-		FILETIME MTime;
-		UInt32 Attrib;
-		bool isDir;
-		bool AttribDefined;
-		bool MTimeDefined;
-	} _processedFileInfo;
+	//struct CProcessedFileInfo
+	//{
+	//	FILETIME MTime;
+	//	UInt32 Attrib;
+	//	bool isDir;
+	//	bool AttribDefined;
+	//	bool MTimeDefined;
+	//} _processedFileInfo;
 
 	//COutFileStream *_outFileStreamSpec;
-	CMyComPtr<ISequentialOutStream> _outFileStream;
+	//CMyComPtr<ISequentialOutStream> _outFileStream;
 
 public:
 	void Init(IInArchive *archiveHandler);

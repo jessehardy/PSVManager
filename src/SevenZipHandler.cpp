@@ -6,6 +6,7 @@
 #include <algorithm>
 #include <map>
 #include <Common/MyCom.h>
+#include "SfoReader.h"
 using namespace NWindows;
 std::map<std::pair<uint32_t, uint64_t>, std::string> DumpToolLibInfos{
 	{ { 0x246ECE3C, 87866 }, "MaiDumpTool v233.2zEX v233.2z10" },
@@ -18,6 +19,8 @@ std::map<std::pair<uint32_t, uint64_t>, std::string> DumpToolLibInfos{
 	{ { 0x6F6F71BB, 107851 }, "Vitamin V1.1" },
 	{ { 0x4FD25E74, 110535 }, "Vitamin Leaked Version" },
 };
+std::vector<ArchiveItemInfo> infoList;
+char* data;
 
 
 void SevenZipHandler::Open()
@@ -52,7 +55,6 @@ void SevenZipHandler::Open()
 	// List command
 	UInt32 numItems = 0;
 	archive->GetNumberOfItems(&numItems);
-	std::vector<ArchiveItemInfo> infoList;
 
 	PROPVARIANT prop;
 	std::string method;
@@ -98,9 +100,9 @@ void SevenZipHandler::Open()
 		infoList.push_back(info);
 	}
 
-	std::sort(infoList.begin(), infoList.end(), [](const ArchiveItemInfo& a, const ArchiveItemInfo& b) {return a.path < b.path;});
+	//std::sort(infoList.begin(), infoList.end(), [](const ArchiveItemInfo& a, const ArchiveItemInfo& b) {return a.path < b.path;});
 
-	for (int i = 0; i < infoList.size(); ++i) {
+	for (auto i = 0u; i < infoList.size(); ++i) {
 		auto& info = infoList[i];
 		info.index = i;
 		auto lastSlash = info.path.find_last_of('\\');
@@ -112,7 +114,7 @@ void SevenZipHandler::Open()
 			info.parentPath = info.path.substr(0, lastSlash);
 			info.name = info.path.substr(lastSlash + 1);
 			info.parent = -1;
-			for (int j = 0; j < infoList.size(); ++j) {
+			for (auto j = 0u; j < infoList.size(); ++j) {
 				if (infoList[j].path == info.parentPath) {
 					info.parent = j;
 					break;
@@ -136,11 +138,40 @@ void SevenZipHandler::Open()
 
 			auto vitaminLibPath = parentPath + "sce_module\\steroid.suprx";
 			FindDumpToolLib(infoList, vitaminLibPath, dumpTool);
+
+			auto sfoPath = parentPath + "sce_sys\\param.sfo";
+			auto sfoIt = FindFile(infoList, sfoPath);
+			if (sfoIt != infoList.end()) {
+				auto& info = *sfoIt;
+				auto size = info.size;
+
+				std::vector<uint32_t> fileList;
+				fileList.push_back(info.index);
+				auto result = Extract(archive, fileList);
+				if (result != S_OK)
+				{
+					//PrintError("Extract Error");
+					return;
+				}
+
+				SfoReader reader;
+				reader.load(data);
+
+			}
 		}
 	}
 
+
+	archive->Close();
+	archive->Release();
+
+}
+
+
+HRESULT SevenZipHandler::Extract(CMyComPtr<IInArchive> archive, std::vector<uint32_t>& files)
+{
 	CArchiveExtractCallback *extractCallbackSpec = new CArchiveExtractCallback;
-	CMyComPtr<IArchiveExtractCallback> extractCallback(extractCallbackSpec);
+	//CMyComPtr<IArchiveExtractCallback> extractCallback(extractCallbackSpec);
 	extractCallbackSpec->Init(archive); // second parameter is output folder path
 	extractCallbackSpec->PasswordIsDefined = false;
 	// extractCallbackSpec->PasswordIsDefined = true;
@@ -164,21 +195,17 @@ void SevenZipHandler::Open()
 	setProperties->SetProperties(names, values, kNumProps);
 	*/
 
-	HRESULT result = archive->Extract(NULL, (UInt32)(Int32)(-1), false, extractCallback);
-
-	if (result != S_OK)
-	{
-		//PrintError("Extract Error");
-		return;
+	if (files.empty()) {
+		return archive->Extract(nullptr, (UInt32)(Int32)(-1), false, extractCallbackSpec);
 	}
-	archive->Close();
-	archive->Release();
-
+	else {
+		return archive->Extract(&files[0], files.size(), false, extractCallbackSpec);
+	}
 }
 
 void SevenZipHandler::FindDumpToolLib(std::vector<ArchiveItemInfo> &infoList, std::string libPath, std::string& dumpTool)
 {
-	auto libIt = std::find_if(infoList.begin(), infoList.end(), [&libPath](const ArchiveItemInfo&a) {return a.path == libPath;});
+	auto libIt = FindFile(infoList, libPath);
 	if (libIt != infoList.end()) {
 		auto& maiLibInfo = *libIt;
 		auto crcIt = DumpToolLibInfos.find(std::make_pair(maiLibInfo.CRC, maiLibInfo.size));
@@ -188,22 +215,37 @@ void SevenZipHandler::FindDumpToolLib(std::vector<ArchiveItemInfo> &infoList, st
 	}
 }
 
-
 void CArchiveExtractCallback::Init(IInArchive *archiveHandler)
 {
 	NumErrors = 0;
-	_archiveHandler = archiveHandler;
+	//_archiveHandler = archiveHandler;
 	//_directoryPath = directoryPath;
 	//NName::NormalizeDirPathPrefix(_directoryPath);
 }
+class MemoryOutStream : public ISequentialOutStream, public CMyUnknownImp
+{
+public:
+	MY_UNKNOWN_IMP;
+	char* buffer;
+	uint32_t pos;
+	MemoryOutStream(char* buffer) : buffer(buffer), pos(0) {
 
+	}
+		STDMETHOD(Write)(const void *data, UInt32 size, UInt32 *processedSize) {
+			memcpy(buffer + pos, data, size);
+			*processedSize = size;
+				return S_OK;
+	}
 
+};
 STDMETHODIMP CArchiveExtractCallback::GetStream(UInt32 index,
 	ISequentialOutStream **outStream, Int32 askExtractMode)
 {
-	*outStream = 0;
-	_outFileStream.Release();
+	auto &info = infoList[index];
+	data = new char[info.size];
 
+	CMyComPtr<ISequentialOutStream> outStreamLoc(new MemoryOutStream(data));
+	*outStream = outStreamLoc.Detach();
 	//{
 	//	// Get Name
 	//	NCOM::CPropVariant prop;

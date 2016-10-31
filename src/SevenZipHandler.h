@@ -9,6 +9,7 @@
 #include <7zip/Archive/IArchive.h>
 #include <vector>
 #include <stdint.h>
+#include <algorithm>
 
 #define kDllName _T("7z.dll")
 
@@ -97,7 +98,15 @@ public:
 
 	void Open();
 
+	HRESULT Extract(CMyComPtr<IInArchive> archive, std::vector<uint32_t>& files);
+
 	void FindDumpToolLib(std::vector<ArchiveItemInfo> &infoList, std::string libPath, std::string& dumpTool);
+
+	auto FindFile(std::vector<ArchiveItemInfo> &infoList, std::string libPath)
+	{
+		return std::find_if(infoList.begin(), infoList.end(), [&libPath](const ArchiveItemInfo&a) {return a.path == libPath;});
+	}
+
 
 };
 
